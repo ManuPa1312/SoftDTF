@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DTF Strip — rimozione neri/bianchi</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap');
+
+  :root{
+    --bg: #16151a;
+    --panel: #1c1b21;
+    --panel-2: #232228;
+    --border: #302f38;
+    --text: #eae7e1;
+    --muted: #8b8892;
+    --orange: #ff5a1f;
+    --teal: #29d3c5;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Inter',sans-serif;
+    min-height:100vh;
+  }
+  .app{
+    display:grid;
+    grid-template-columns: 340px 1fr;
+    min-height:100vh;
+  }
+  @media (max-width: 860px){
+    .app{ grid-template-columns: 1fr; }
+  }
+
+  /* ---- Sidebar ---- */
+  .sidebar{
+    background:var(--panel);
+    border-right:1px solid var(--border);
+    padding:28px 24px;
+    display:flex;
+    flex-direction:column;
+    gap:26px;
+  }
+  .brand{
+    display:flex;
+    align-items:baseline;
+    gap:8px;
+  }
+  .brand .mark{
+    width:10px;height:10px;
+    background:var(--orange);
+    display:inline-block;
+    border-radius:2px;
+    transform: rotate(45deg);
+  }
+  .brand h1{
+    font-size:15px;
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+    margin:0;
+    font-weight:600;
+  }
+  .brand span{
+    color:var(--muted);
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11px;
+  }
+
+  .field{
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+  }
+  .field-label{
+    display:flex;
+    justify-content:space-between;
+    align-items:baseline;
+    font-size:12px;
+    text-transform:uppercase;
+    letter-spacing:0.06em;
+    color:var(--muted);
+  }
+  .field-label b{
+    color:var(--text);
+    font-weight:500;
+  }
+  .field-value{
+    font-family:'IBM Plex Mono',monospace;
+    color:var(--teal);
+    font-size:12px;
+  }
+
+  .mode-toggle{
+    display:flex;
+    border:1px solid var(--border);
+    border-radius:8px;
+    overflow:hidden;
+  }
+  .mode-toggle button{
+    flex:1;
+    background:var(--panel-2);
+    color:var(--muted);
+    border:none;
+    padding:12px 8px;
+    font-family:'Inter',sans-serif;
+    font-size:12.5px;
+    font-weight:600;
+    cursor:pointer;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:4px;
+    transition:.15s;
+  }
+  .mode-toggle button .sw{
+    width:16px;height:16px;
+    border-radius:50%;
+    border:2px solid var(--border);
+  }
+  .mode-toggle button[data-mode="dark"] .sw{ background:#111; }
+  .mode-toggle button[data-mode="light"] .sw{ background:#fff; }
+  .mode-toggle button.active{
+    background:var(--orange);
+    color:#1a0d05;
+  }
+  .mode-toggle button.active .sw{ border-color:#1a0d05; }
+
+  input[type=range]{
+    -webkit-appearance:none;
+    width:100%;
+    height:3px;
+    background:var(--border);
+    border-radius:2px;
+    outline:none;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;
+    width:15px;height:15px;
+    border-radius:50%;
+    background:var(--teal);
+    cursor:pointer;
+    border:2px solid var(--bg);
+    box-shadow:0 0 0 1px var(--teal);
+  }
+  input[type=range]::-moz-range-thumb{
+    width:15px;height:15px;
+    border-radius:50%;
+    background:var(--teal);
+    cursor:pointer;
+    border:2px solid var(--bg);
+  }
+
+  .hint{
+    font-size:12px;
+    color:var(--muted);
+    line-height:1.5;
+    margin:0;
+  }
+
+  .checkbox-row{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    font-size:13px;
+    color:var(--text);
+    cursor:pointer;
+    user-select:none;
+  }
+  .checkbox-row input{
+    width:15px;height:15px;
+    accent-color:var(--orange);
+  }
+
+  .divider{
+    height:1px;
+    background:var(--border);
+  }
+
+  .btn{
+    background:var(--panel-2);
+    border:1px solid var(--border);
+    color:var(--text);
+    padding:12px 16px;
+    border-radius:8px;
+    font-family:'Inter',sans-serif;
+    font-weight:600;
+    font-size:13px;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    transition:.15s;
+  }
+  .btn:hover{ border-color:var(--teal); }
+  .btn.primary{
+    background:var(--orange);
+    color:#1a0d05;
+    border-color:var(--orange);
+  }
+  .btn.primary:hover{ filter:brightness(1.08); }
+  .btn:disabled{
+    opacity:0.4;
+    cursor:not-allowed;
+  }
+  .btn-row{ display:flex; flex-direction:column; gap:10px; }
+
+  /* ---- Main / canvas area ---- */
+  .stage{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    padding:32px;
+    gap:18px;
+    position:relative;
+  }
+  .dropzone{
+    width:100%;
+    max-width:640px;
+    aspect-ratio: 4/3;
+    border:1.5px dashed var(--border);
+    border-radius:14px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:14px;
+    cursor:pointer;
+    transition:.15s;
+    text-align:center;
+    padding:20px;
+  }
+  .dropzone:hover, .dropzone.drag{
+    border-color:var(--teal);
+    background:rgba(41,211,197,0.04);
+  }
+  .dropzone .icon{
+    width:46px;height:46px;
+    border:1.5px solid var(--muted);
+    border-radius:10px;
+    display:flex;align-items:center;justify-content:center;
+    color:var(--muted);
+    font-size:20px;
+  }
+  .dropzone p{ margin:0; color:var(--muted); font-size:13px; }
+  .dropzone .accent{ color:var(--text); font-weight:600; font-size:14px; }
+
+  .canvas-wrap{
+    position:relative;
+    max-width:100%;
+    border-radius:10px;
+    overflow:hidden;
+    border:1px solid var(--border);
+    background-image:
+      linear-gradient(45deg, #26252c 25%, transparent 25%),
+      linear-gradient(-45deg, #26252c 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, #26252c 75%),
+      linear-gradient(-45deg, transparent 75%, #26252c 75%);
+    background-size: 20px 20px;
+    background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+    background-color:#1a1920;
+  }
+  canvas{
+    display:block;
+    max-width: min(78vw, 900px);
+    max-height: 70vh;
+    width:auto;
+    height:auto;
+  }
+  .topbar{
+    display:none;
+    width:100%;
+    max-width:900px;
+    justify-content:space-between;
+    align-items:center;
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11.5px;
+    color:var(--muted);
+  }
+  .topbar.show{ display:flex; }
+  .topbar b{ color:var(--text); }
+  .topbar .reset{
+    color:var(--orange);
+    cursor:pointer;
+    text-decoration:underline;
+    text-underline-offset:3px;
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <span class="mark"></span>
+      <h1>DTF Strip</h1>
+      <span>xp600 / audley</span>
+    </div>
+
+    <div class="field">
+      <div class="field-label"><b>Colore del capo</b></div>
+      <div class="mode-toggle" id="modeToggle">
+        <button data-mode="dark" class="active">
+          <span class="sw"></span>
+          Capo scuro
+        </button>
+        <button data-mode="light">
+          <span class="sw"></span>
+          Capo chiaro
+        </button>
+      </div>
+      <p class="hint" id="modeHint">Rende trasparenti i toni quasi-neri: il nero del tessuto farà il lavoro al posto dell'inchiostro.</p>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="field">
+      <div class="field-label">Soglia <span class="field-value" id="threshVal">40</span></div>
+      <input type="range" id="thresh" min="0" max="255" value="40">
+      <p class="hint">Quanto deve essere scuro (o chiaro) un pixel per essere tolto. Alzala se restano ancora zone piene.</p>
+    </div>
+
+    <div class="field">
+      <div class="field-label">Sfumatura <span class="field-value" id="featherVal">28</span></div>
+      <input type="range" id="feather" min="0" max="120" value="28">
+      <p class="hint">Ammorbidisce il passaggio, evita il bordo netto ("scalino") tra zona tolta e zona stampata.</p>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="field">
+      <div class="field-label">Riduzione densità globale <span class="field-value" id="densityVal">0%</span></div>
+      <input type="range" id="density" min="0" max="40" value="0">
+      <p class="hint">Alleggerisce l'inchiostro anche nelle zone "piene" con un puntinato fine, non solo dove abbiamo già tolto nero/bianco. Parti basso (5-10%) e sali guardando la resa.</p>
+    </div>
+
+    <div class="mode-toggle" id="patternToggle">
+      <button data-pattern="bayer" class="active">Puntinato ordinato</button>
+      <button data-pattern="noise">Grana organica</button>
+    </div>
+
+    <label class="checkbox-row">
+      <input type="checkbox" id="protectDetails" checked>
+      Proteggi bordi e dettagli fini
+    </label>
+
+    <div class="divider"></div>
+
+    <label class="checkbox-row">
+      <input type="checkbox" id="maskPreview">
+      Mostra solo la maschera (bianco = stampato, nero = tolto)
+    </label>
+
+    <div class="divider"></div>
+
+    <div class="btn-row">
+      <button class="btn primary" id="downloadPng" disabled>↓ Scarica PNG (con alpha)</button>
+      <button class="btn" id="downloadMask" disabled>↓ Scarica maschera (per layer mask)</button>
+      <button class="btn" id="changeImage" disabled>Carica un'altra immagine</button>
+    </div>
+    <p class="hint">La maschera in scala di grigi va applicata come layer mask in Photoshop: così puoi ritoccarla a pennello prima di esportare per la stampa.</p>
+  </aside>
+
+  <main class="stage">
+    <div class="topbar" id="topbar">
+      <span id="fileInfo"></span>
+      <span class="reset" id="resetBtn">reimposta</span>
+    </div>
+
+    <div class="dropzone" id="dropzone">
+      <div class="icon">↑</div>
+      <p class="accent">Trascina qui l'immagine</p>
+      <p>oppure clicca per scegliere un file — JPG, PNG</p>
+    </div>
+
+    <div class="canvas-wrap" id="canvasWrap" style="display:none;">
+      <canvas id="canvas"></canvas>
+    </div>
+
+    <input type="file" id="fileInput" accept="image/png,image/jpeg" style="display:none;">
+  </main>
+</div>
+
+<script>
+(function(){
+  const dropzone = document.getElementById('dropzone');
+  const fileInput = document.getElementById('fileInput');
+  const canvasWrap = document.getElementById('canvasWrap');
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+  const topbar = document.getElementById('topbar');
+  const fileInfo = document.getElementById('fileInfo');
+  const resetBtn = document.getElementById('resetBtn');
+
+  const threshSlider = document.getElementById('thresh');
+  const featherSlider = document.getElementById('feather');
+  const threshVal = document.getElementById('threshVal');
+  const featherVal = document.getElementById('featherVal');
+  const maskPreview = document.getElementById('maskPreview');
+  const modeButtons = document.querySelectorAll('#modeToggle button');
+  const modeHint = document.getElementById('modeHint');
+
+  const densitySlider = document.getElementById('density');
+  const densityVal = document.getElementById('densityVal');
+  const patternButtons = document.querySelectorAll('#patternToggle button');
+  const protectDetails = document.getElementById('protectDetails');
+
+  const downloadPngBtn = document.getElementById('downloadPng');
+  const downloadMaskBtn = document.getElementById('downloadMask');
+  const changeImageBtn = document.getElementById('changeImage');
+
+  let originalImageData = null; // pristine pixel data
+  let edgeMap = null; // Float32Array 0..1, quanto è "bordo/dettaglio" ogni pixel
+  let mode = 'dark';
+  let pattern = 'bayer';
+  let currentFileName = 'immagine';
+  let renderQueued = false;
+
+  const hints = {
+    dark: "Rende trasparenti i toni quasi-neri: il nero del tessuto farà il lavoro al posto dell'inchiostro.",
+    light: "Rende trasparenti i toni quasi-bianchi: la fibra chiara del capo farà il lavoro al posto dell'inchiostro bianco."
+  };
+
+  // Matrice di Bayer 8x8 per il dithering ordinato
+  const BAYER8 = [
+    [0,48,12,60,3,51,15,63],
+    [32,16,44,28,35,19,47,31],
+    [8,56,4,52,11,59,7,55],
+    [40,24,36,20,43,27,39,23],
+    [2,50,14,62,1,49,13,61],
+    [34,18,46,30,33,17,45,29],
+    [10,58,6,54,9,57,5,53],
+    [42,26,38,22,41,25,37,21]
+  ];
+  function bayerValue(x, y){
+    return (BAYER8[y & 7][x & 7] + 0.5) / 64;
+  }
+  // Rumore pseudo-casuale ma deterministico (stessa immagine → stesso risultato in anteprima ed export)
+  function hashNoise(x, y){
+    const s = Math.sin(x * 127.1 + y * 311.7) * 43758.5453;
+    return s - Math.floor(s);
+  }
+
+  // Calcola una mappa "quanto è bordo/dettaglio" per proteggere testo e contorni fini dal dithering
+  function computeEdgeMap(imageData){
+    const w = imageData.width, h = imageData.height;
+    const src = imageData.data;
+    const lum = new Float32Array(w*h);
+    for (let i = 0, p = 0; i < src.length; i += 4, p++){
+      lum[p] = 0.299*src[i] + 0.587*src[i+1] + 0.114*src[i+2];
+    }
+    const map = new Float32Array(w*h);
+    for (let y = 0; y < h; y++){
+      for (let x = 0; x < w; x++){
+        const p = y*w + x;
+        const lx0 = lum[p - (x>0?1:0)];
+        const lx1 = lum[p + (x<w-1?1:0)];
+        const ly0 = lum[p - (y>0?w:0)];
+        const ly1 = lum[p + (y<h-1?w:0)];
+        const grad = (Math.abs(lx1-lx0) + Math.abs(ly1-ly0)) / 255;
+        map[p] = Math.min(1, grad);
+      }
+    }
+    return map;
+  }
+
+  // ---- Load image ----
+  function loadFile(file){
+    if(!file || !file.type.startsWith('image/')) return;
+    currentFileName = file.name.replace(/\.[^/.]+$/, '');
+    const img = new Image();
+    const reader = new FileReader();
+    reader.onload = e => {
+      img.onload = () => {
+        const MAX = 2200; // safety cap for very large scans
+        let w = img.width, h = img.height;
+        if (w > MAX || h > MAX){
+          const scale = MAX / Math.max(w,h);
+          w = Math.round(w*scale); h = Math.round(h*scale);
+        }
+        canvas.width = w;
+        canvas.height = h;
+        ctx.drawImage(img, 0, 0, w, h);
+        originalImageData = ctx.getImageData(0,0,w,h);
+        edgeMap = computeEdgeMap(originalImageData);
+
+        dropzone.style.display = 'none';
+        canvasWrap.style.display = 'block';
+        topbar.classList.add('show');
+        fileInfo.innerHTML = `<b>${file.name}</b> &nbsp;·&nbsp; ${w}×${h}px`;
+        downloadPngBtn.disabled = false;
+        downloadMaskBtn.disabled = false;
+        changeImageBtn.disabled = false;
+        render();
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  dropzone.addEventListener('click', () => fileInput.click());
+  changeImageBtn.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', e => loadFile(e.target.files[0]));
+
+  ['dragenter','dragover'].forEach(evt =>
+    dropzone.addEventListener(evt, e => { e.preventDefault(); dropzone.classList.add('drag'); })
+  );
+  ['dragleave','drop'].forEach(evt =>
+    dropzone.addEventListener(evt, e => { e.preventDefault(); dropzone.classList.remove('drag'); })
+  );
+  dropzone.addEventListener('drop', e => loadFile(e.dataTransfer.files[0]));
+
+  resetBtn.addEventListener('click', () => {
+    originalImageData = null;
+    edgeMap = null;
+    canvasWrap.style.display = 'none';
+    topbar.classList.remove('show');
+    dropzone.style.display = 'flex';
+    downloadPngBtn.disabled = true;
+    downloadMaskBtn.disabled = true;
+    changeImageBtn.disabled = true;
+    fileInput.value = '';
+  });
+
+  // ---- Mode toggle (capo scuro / chiaro) ----
+  modeButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      modeButtons.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      mode = btn.dataset.mode;
+      modeHint.textContent = hints[mode];
+      queueRender();
+    });
+  });
+
+  // ---- Pattern toggle (dithering) ----
+  patternButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      patternButtons.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      pattern = btn.dataset.pattern;
+      queueRender();
+    });
+  });
+
+  threshSlider.addEventListener('input', () => { threshVal.textContent = threshSlider.value; queueRender(); });
+  featherSlider.addEventListener('input', () => { featherVal.textContent = featherSlider.value; queueRender(); });
+  densitySlider.addEventListener('input', () => { densityVal.textContent = densitySlider.value + '%'; queueRender(); });
+  protectDetails.addEventListener('change', queueRender);
+  maskPreview.addEventListener('change', queueRender);
+
+  // Raggruppa gli aggiornamenti veloci dello slider in un solo frame, per restare fluidi su immagini grandi
+  function queueRender(){
+    if (renderQueued) return;
+    renderQueued = true;
+    requestAnimationFrame(() => { renderQueued = false; render(); });
+  }
+
+  function smoothstep(edge0, edge1, x){
+    if (edge0 === edge1) return x < edge0 ? 0 : 1;
+    let t = (x - edge0) / (edge1 - edge0);
+    t = Math.min(1, Math.max(0, t));
+    return t * t * (3 - 2 * t);
+  }
+
+  // ---- Calcolo condiviso: knockout colore + dithering densità ----
+  // Restituisce una Float32Array (0..1) con il fattore alpha finale per ogni pixel,
+  // usata sia dall'anteprima live sia dall'export, così sono sempre identici.
+  function computeAlphaMap(){
+    const t = parseInt(threshSlider.value, 10);
+    const f = parseInt(featherSlider.value, 10);
+    const density = parseInt(densitySlider.value, 10) / 100; // 0..0.4
+    const protect = protectDetails.checked;
+    const w = originalImageData.width, h = originalImageData.height;
+    const src = originalImageData.data;
+
+    const e0 = Math.max(0, t - f);
+    const e1 = Math.min(255, t + f);
+
+    const alphaMap = new Float32Array(w*h);
+
+    for (let p = 0, i = 0; p < w*h; p++, i += 4){
+      const r = src[i], g = src[i+1], b = src[i+2];
+      const lum = 0.299*r + 0.587*g + 0.114*b;
+      const target = (mode === 'dark') ? lum : (255 - lum);
+      let a = smoothstep(e0, e1, target); // 0 = tolto dallo strip colore, 1 = pieno
+
+      // Il dithering di densità agisce solo dove il colore NON è già stato tolto,
+      // per non sommare due riduzioni sullo stesso pixel
+      if (density > 0 && a > 0.02){
+        const x = p % w, y = (p / w) | 0;
+        const ditherVal = (pattern === 'bayer') ? bayerValue(x, y) : hashNoise(x, y);
+        const edge = protect ? edgeMap[p] : 0;
+        const effectiveDensity = density * (1 - edge); // meno riduzione dove c'è un bordo/dettaglio netto
+        if (ditherVal < effectiveDensity) a = 0; // goccia "saltata"
+      }
+      alphaMap[p] = a;
+    }
+    return alphaMap;
+  }
+
+  function paintFromAlphaMap(targetCtx, alphaMap, showMask){
+    const w = originalImageData.width, h = originalImageData.height;
+    const src = originalImageData.data;
+    const out = targetCtx.createImageData(w, h);
+    const dst = out.data;
+
+    for (let p = 0, i = 0; p < w*h; p++, i += 4){
+        const a = alphaMap[p]; // Valore da 0 a 1 generato dal tuo slider
+
+        if (showMask){
+            const g8 = Math.round(a * 255);
+            dst[i] = g8;
+            dst[i+1] = g8;
+            dst[i+2] = g8;
+            dst[i+3] = 255;
+        } else {
+            const srcA = src[i+3] / 255;
+            const finalAlpha = srcA * a;
+
+            if (finalAlpha === 0) {
+                // Se il pixel deve sparire, azzeriamo completamente anche l'RGB
+                dst[i] = 0;
+                dst[i+1] = 0;
+                dst[i+2] = 0;
+                dst[i+3] = 0;
+            } else {
+                // PREVENZIONE ALONI PER MAINTOP:
+                // Se riduciamo l'alpha su un capo scuro, dobbiamo compensare l'RGB
+                // per evitare che la XP600 stampi inchiostro CMYK "pieno" dove manca il bianco.
+                if (mode === 'dark' && a < 1.0) {
+                    // Algoritmo di compensazione: più l'alpha è basso, più spingiamo i colori
+                    // verso la luminosità corretta per non farli affondare nel nero del tessuto
+                    const factor = Math.max(0.1, a); 
+                    dst[i]   = Math.min(255, Math.
