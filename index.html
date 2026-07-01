@@ -635,4 +635,62 @@
                     // Algoritmo di compensazione: più l'alpha è basso, più spingiamo i colori
                     // verso la luminosità corretta per non farli affondare nel nero del tessuto
                     const factor = Math.max(0.1, a); 
-                    dst[i]   = Math.min(255, Math.
+                    dst[i]   = Math.min(255, Math.Math.round(src[i] / factor));
+                    dst[i+1] = Math.min(255, Math.round(src[i+1] / factor));
+                    dst[i+2] = Math.min(255, Math.round(src[i+2] / factor));
+                } else {
+                    dst[i]   = src[i];
+                    dst[i+1] = src[i+1];
+                    dst[i+2] = src[i+2];
+                }
+                
+                dst[i+3] = Math.round(finalAlpha * 255);
+            }
+        }
+    }
+    targetCtx.putImageData(out, 0, 0);
+}
+
+
+  // ---- Anteprima live ----
+  function render(){
+    if (!originalImageData) return;
+    const alphaMap = computeAlphaMap();
+    paintFromAlphaMap(ctx, alphaMap, maskPreview.checked);
+  }
+
+  // ---- Export helpers ----
+  function buildResultCanvas(asMask){
+    const w = originalImageData.width, h = originalImageData.height;
+    const alphaMap = computeAlphaMap();
+    const c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    paintFromAlphaMap(c.getContext('2d'), alphaMap, asMask);
+    return c;
+  }
+
+  function download(canvasEl, suffix){
+    canvasEl.toBlob(blob => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${currentFileName}_${mode}_${suffix}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+    }, 'image/png');
+  }
+
+  downloadPngBtn.addEventListener('click', () => {
+    const c = buildResultCanvas(false);
+    download(c, 'strip');
+  });
+  downloadMaskBtn.addEventListener('click', () => {
+    const c = buildResultCanvas(true);
+    download(c, 'mask');
+  });
+})();
+</script>
+</body>
+</html>
