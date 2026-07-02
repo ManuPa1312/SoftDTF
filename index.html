@@ -607,50 +607,20 @@
     const src = originalImageData.data;
     const out = targetCtx.createImageData(w, h);
     const dst = out.data;
-
     for (let p = 0, i = 0; p < w*h; p++, i += 4){
-        const a = alphaMap[p]; // Valore da 0 a 1 generato dal tuo slider
-
-        if (showMask){
-            const g8 = Math.round(a * 255);
-            dst[i] = g8;
-            dst[i+1] = g8;
-            dst[i+2] = g8;
-            dst[i+3] = 255;
-        } else {
-            const srcA = src[i+3] / 255;
-            const finalAlpha = srcA * a;
-
-            if (finalAlpha === 0) {
-                // Se il pixel deve sparire, azzeriamo completamente anche l'RGB
-                dst[i] = 0;
-                dst[i+1] = 0;
-                dst[i+2] = 0;
-                dst[i+3] = 0;
-            } else {
-                // PREVENZIONE ALONI PER MAINTOP:
-                // Se riduciamo l'alpha su un capo scuro, dobbiamo compensare l'RGB
-                // per evitare che la XP600 stampi inchiostro CMYK "pieno" dove manca il bianco.
-                if (mode === 'dark' && a < 1.0) {
-                    // Algoritmo di compensazione: più l'alpha è basso, più spingiamo i colori
-                    // verso la luminosità corretta per non farli affondare nel nero del tessuto
-                    const factor = Math.max(0.1, a); 
-                    dst[i]   = Math.min(255, Math.Math.round(src[i] / factor));
-                    dst[i+1] = Math.min(255, Math.round(src[i+1] / factor));
-                    dst[i+2] = Math.min(255, Math.round(src[i+2] / factor));
-                } else {
-                    dst[i]   = src[i];
-                    dst[i+1] = src[i+1];
-                    dst[i+2] = src[i+2];
-                }
-                
-                dst[i+3] = Math.round(finalAlpha * 255);
-            }
-        }
+      let a = alphaMap[p];
+      if (!Number.isFinite(a)) a = 0; // protezione: valore mancante/NaN -> pixel trasparente invece di crash
+      if (showMask){
+        const g8 = Math.round(a * 255);
+        dst[i] = g8; dst[i+1] = g8; dst[i+2] = g8; dst[i+3] = 255;
+      } else {
+        const srcA = src[i+3] || 0;
+        dst[i] = src[i]; dst[i+1] = src[i+1]; dst[i+2] = src[i+2];
+        dst[i+3] = Math.round((srcA/255) * a * 255);
+      }
     }
     targetCtx.putImageData(out, 0, 0);
-}
-
+  }
 
   // ---- Anteprima live ----
   function render(){
