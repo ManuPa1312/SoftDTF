@@ -320,13 +320,19 @@
     <div class="field">
       <div class="field-label">Soglia <span class="field-value" id="threshVal">40</span></div>
       <input type="range" id="thresh" min="0" max="255" value="40">
-      <p class="hint">Quanto deve essere scuro (o chiaro) un pixel per essere tolto. Alzala se restano ancora zone piene.</p>
+      <p class="hint">Quanto deve essere scuro (o chiaro) un pixel per essere tolto. Tienila bassa (15-20) per le foto.</p>
     </div>
 
     <div class="field">
       <div class="field-label">Sfumatura <span class="field-value" id="featherVal">28</span></div>
       <input type="range" id="feather" min="0" max="120" value="28">
-      <p class="hint">Ammorbidisce il passaggio, evita il bordo netto ("scalino") tra zona tolta e zona stampata.</p>
+      <p class="hint">Ammorbidisce il passaggio tra zona rimossa e zona stampata. Alzala (50+) per le foto reali.</p>
+    </div>
+
+    <div class="field">
+      <div class="field-label">Sfumatura Bordi Foto <span class="field-value" id="edgeFadeVal">0px</span></div>
+      <input type="range" id="edgeFade" min="0" max="150" value="0">
+      <p class="hint">Sfuma i 4 lati esterni della foto nel vuoto. Perfetto per togliere il rettangolo netto delle foto.</p>
     </div>
 
     <div class="divider"></div>
@@ -334,7 +340,7 @@
     <div class="field">
       <div class="field-label">Riduzione densità globale <span class="field-value" id="densityVal">0%</span></div>
       <input type="range" id="density" min="0" max="40" value="0">
-      <p class="hint">Alleggerisce l'inchiostro anche nelle zone "piene" con un puntinato fine, non solo dove abbiamo già tolto nero/bianco. Parti basso (5-10%) e sali guardando la resa.</p>
+      <p class="hint">Alleggerisce l'inchiostro nelle zone piene. Tienila a zero o molto bassa (2-4%) sulle foto dei visi.</p>
     </div>
 
     <div class="mode-toggle" id="patternToggle">
@@ -361,7 +367,6 @@
       <button class="btn" id="downloadMask" disabled>↓ Scarica maschera (per layer mask)</button>
       <button class="btn" id="changeImage" disabled>Carica un'altra immagine</button>
     </div>
-    <p class="hint">La maschera in scala di grigi va applicata come layer mask in Photoshop: così puoi ritoccarla a pennello prima di esportare per la stampa.</p>
   </aside>
 
   <main class="stage">
@@ -397,8 +402,10 @@
 
   const threshSlider = document.getElementById('thresh');
   const featherSlider = document.getElementById('feather');
+  const edgeFadeSlider = document.getElementById('edgeFade'); // Nuovo slider
   const threshVal = document.getElementById('threshVal');
   const featherVal = document.getElementById('featherVal');
+  const edgeFadeVal = document.getElementById('edgeFadeVal'); // Nuovo val UI
   const maskPreview = document.getElementById('maskPreview');
   const modeButtons = document.querySelectorAll('#modeToggle button');
   const modeHint = document.getElementById('modeHint');
@@ -412,8 +419,8 @@
   const downloadMaskBtn = document.getElementById('downloadMask');
   const changeImageBtn = document.getElementById('changeImage');
 
-  let originalImageData = null; // pristine pixel data
-  let edgeMap = null; // Float32Array 0..1, quanto è "bordo/dettaglio" ogni pixel
+  let originalImageData = null; 
+  let edgeMap = null; 
   let mode = 'dark';
   let pattern = 'bayer';
   let currentFileName = 'immagine';
@@ -424,7 +431,6 @@
     light: "Rende trasparenti i toni quasi-bianchi: la fibra chiara del capo farà il lavoro al posto dell'inchiostro bianco."
   };
 
-  // Matrice di Bayer 8x8 per il dithering ordinato
   const BAYER8 = [
     [0,48,12,60,3,51,15,63],
     [32,16,44,28,35,19,47,31],
@@ -438,13 +444,11 @@
   function bayerValue(x, y){
     return (BAYER8[y & 7][x & 7] + 0.5) / 64;
   }
-  // Rumore pseudo-casuale ma deterministico (stessa immagine → stesso risultato in anteprima ed export)
   function hashNoise(x, y){
     const s = Math.sin(x * 127.1 + y * 311.7) * 43758.5453;
     return s - Math.floor(s);
   }
 
-  // Calcola una mappa "quanto è bordo/dettaglio" per proteggere testo e contorni fini dal dithering
   function computeEdgeMap(imageData){
     const w = imageData.width, h = imageData.height;
     const src = imageData.data;
@@ -467,7 +471,6 @@
     return map;
   }
 
-  // ---- Load image ----
   function loadFile(file){
     if(!file || !file.type.startsWith('image/')) return;
     currentFileName = file.name.replace(/\.[^/.]+$/, '');
@@ -475,7 +478,7 @@
     const reader = new FileReader();
     reader.onload = e => {
       img.onload = () => {
-        const MAX = 2200; // safety cap for very large scans
+        const MAX = 2200; 
         let w = img.width, h = img.height;
         if (w > MAX || h > MAX){
           const scale = MAX / Math.max(w,h);
@@ -486,6 +489,9 @@
         ctx.drawImage(img, 0, 0, w, h);
         originalImageData = ctx.getImageData(0,0,w,h);
         edgeMap = computeEdgeMap(originalImageData);
+
+        // Imposta il massimo dello slider sfumatura bordi in base alla dimensione reale dell'immagine
+        edgeFadeSlider.max = Math.round(Math.min(w, h) / 3);
 
         dropzone.style.display = 'none';
         canvasWrap.style.display = 'block';
@@ -523,9 +529,10 @@
     downloadMaskBtn.disabled = true;
     changeImageBtn.disabled = true;
     fileInput.value = '';
+    edgeFadeSlider.value = 0;
+    edgeFadeVal.textContent = '0px';
   });
 
-  // ---- Mode toggle (capo scuro / chiaro) ----
   modeButtons.forEach(btn => {
     btn.addEventListener('click', () => {
       modeButtons.forEach(b => b.classList.remove('active'));
@@ -536,7 +543,6 @@
     });
   });
 
-  // ---- Pattern toggle (dithering) ----
   patternButtons.forEach(btn => {
     btn.addEventListener('click', () => {
       patternButtons.forEach(b => b.classList.remove('active'));
@@ -548,11 +554,11 @@
 
   threshSlider.addEventListener('input', () => { threshVal.textContent = threshSlider.value; queueRender(); });
   featherSlider.addEventListener('input', () => { featherVal.textContent = featherSlider.value; queueRender(); });
+  edgeFadeSlider.addEventListener('input', () => { edgeFadeVal.textContent = edgeFadeSlider.value + 'px'; queueRender(); });
   densitySlider.addEventListener('input', () => { densityVal.textContent = densitySlider.value + '%'; queueRender(); });
   protectDetails.addEventListener('change', queueRender);
   maskPreview.addEventListener('change', queueRender);
 
-  // Raggruppa gli aggiornamenti veloci dello slider in un solo frame, per restare fluidi su immagini grandi
   function queueRender(){
     if (renderQueued) return;
     renderQueued = true;
@@ -566,11 +572,12 @@
     return t * t * (3 - 2 * t);
   }
 
-  // ---- Calcolo condiviso: knockout colore + dithering densità ----
+  // ---- Calcolo mappa Alpha + Vignettatura Bordi ----
   function computeAlphaMap(){
     const t = parseInt(threshSlider.value, 10);
     const f = parseInt(featherSlider.value, 10);
-    const density = parseInt(densitySlider.value, 10) / 100; // 0..0.4
+    const fadeSize = parseInt(edgeFadeSlider.value, 10); // valore del nuovo slider
+    const density = parseInt(densitySlider.value, 10) / 100; 
     const protect = protectDetails.checked;
     const w = originalImageData.width, h = originalImageData.height;
     const src = originalImageData.data;
@@ -581,13 +588,31 @@
     const alphaMap = new Float32Array(w*h);
 
     for (let p = 0, i = 0; p < w*h; p++, i += 4){
+      const x = p % w;
+      const y = (p / w) | 0;
+
       const r = src[i], g = src[i+1], b = src[i+2];
       const lum = 0.299*r + 0.587*g + 0.114*b;
       const target = (mode === 'dark') ? lum : (255 - lum);
-      let a = smoothstep(e0, e1, target); // 0 = tolto dallo strip colore, 1 = pieno
+      let a = smoothstep(e0, e1, target); 
+
+      // APPLICAZIONE SFUMATURA BORDI ESTERNI AUTOMATICA
+      if (fadeSize > 0) {
+        // Calcoliamo la distanza minima del pixel dai 4 bordi dell'immagine
+        const distLeft = x;
+        const distRight = w - 1 - x;
+        const distTop = y;
+        const distBottom = h - 1 - y;
+        const minDist = Math.min(distLeft, distRight, distTop, distBottom);
+
+        if (minDist < fadeSize) {
+          // Crea un fattore moltiplicativo da 0 (bordo esterno) a 1 (interno immagine)
+          const edgeFactor = minDist / fadeSize;
+          a *= (edgeFactor * edgeFactor * (3 - 2 * edgeFactor)); // Sfumatura smooth
+        }
+      }
 
       if (density > 0 && a > 0.02){
-        const x = p % w, y = (p / w) | 0;
         const ditherVal = (pattern === 'bayer') ? bayerValue(x, y) : hashNoise(x, y);
         const edge = protect ? edgeMap[p] : 0;
         const effectiveDensity = density * (1 - edge); 
@@ -598,7 +623,6 @@
     return alphaMap;
   }
 
-  // NUOVA FUNZIONE OTTIMIZZATA PER EVITARE ALONI SU MAINTOP / TESTA XP600
   function paintFromAlphaMap(targetCtx, alphaMap, showMask){
     const w = originalImageData.width, h = originalImageData.height;
     const src = originalImageData.data;
@@ -619,7 +643,6 @@
         if (finalAlpha === 0) {
           dst[i] = 0; dst[i+1] = 0; dst[i+2] = 0; dst[i+3] = 0;
         } else {
-          // Compensazione colore automatica per evitare pasticci di CMYK sul tessuto nero
           if (mode === 'dark' && a < 1.0) {
             const factor = Math.max(0.1, a); 
             dst[i]   = Math.min(255, Math.round(src[i] / factor));
@@ -637,14 +660,12 @@
     targetCtx.putImageData(out, 0, 0);
   }
 
-  // ---- Anteprima live ----
   function render(){
     if (!originalImageData) return;
     const alphaMap = computeAlphaMap();
     paintFromAlphaMap(ctx, alphaMap, maskPreview.checked);
   }
 
-  // ---- Export helpers ----
   function buildResultCanvas(asMask){
     const w = originalImageData.width, h = originalImageData.height;
     const alphaMap = computeAlphaMap();
