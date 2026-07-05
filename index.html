@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>DTF Strip — rimozione neri/bianchi & Halftone</title>
+<title>DTF Strip Pro — rimozione neri & Halftone</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght=400;500;600&family=Inter:wght=400;500;600;700&display=swap');
 
@@ -156,13 +156,6 @@
     background:var(--purple);
     box-shadow:0 0 0 1px var(--purple);
   }
-  input[type=range]::-moz-range-thumb{
-    width:15px;height:15px;
-    border-radius:50%;
-    background:var(--teal);
-    cursor:pointer;
-    border:2px solid var(--bg);
-  }
 
   .hint{
     font-size:11px;
@@ -223,7 +216,7 @@
   }
   .btn-row{ display:flex; flex-direction:column; gap:10px; }
 
-  /* ---- Main / canvas area ---- */
+  /* ---- Stage ---- */
   .stage{
     display:flex;
     flex-direction:column;
@@ -351,12 +344,11 @@
       <input type="checkbox" id="halftoneActive" class="purple-check">
       ATTIVA RETINO SERIGRAFICO
     </label>
-    <p class="hint">Scompone le sfumature della pelle e dello sfondo in punti geometrici per una stampa traspirante ed extra-morbida.</p>
+    <p class="hint">Scompone la pelle e lo sfondo in punti geometrici traspiranti.</p>
 
     <div class="field" id="halftoneControls" style="opacity:0.4; pointer-events:none; transition:0.2s;">
       <div class="field-label" style="color:var(--purple);">Dimensione Punti <span class="field-value purple" id="dotSizeVal">6px</span></div>
       <input type="range" id="dotSize" min="3" max="16" value="6" class="purple-slider">
-      <p class="hint">Punti piccoli = più dettaglio. Punti grandi = effetto serigrafia retro / maglia più leggera.</p>
       
       <div class="field-label" style="color:var(--purple); margin-top:8px;">Forma del punto</div>
       <div class="mode-toggle" id="dotShapeToggle">
@@ -402,7 +394,7 @@
 
     <div class="dropzone" id="dropzone">
       <div class="icon">↑</div>
-      <p class="accent">Trascina qui la foto dei ragazzi</p>
+      <p class="accent">Trascina qui l'immagine dei ragazzi</p>
       <p>o clicca per selezionarla</p>
     </div>
 
@@ -434,7 +426,6 @@
   const maskPreview = document.getElementById('maskPreview');
   const modeButtons = document.querySelectorAll('#modeToggle button');
 
-  // Controlli Halftone Serigrafia
   const halftoneActive = document.getElementById('halftoneActive');
   const halftoneControls = document.getElementById('halftoneControls');
   const dotSizeSlider = document.getElementById('dotSize');
@@ -494,7 +485,7 @@
     const reader = new FileReader();
     reader.onload = e => {
       img.onload = () => {
-        const MAX = 1800; // Ottimizzato per calcoli geometrici rapidi
+        const MAX = 1800; 
         let w = img.width, h = img.height;
         if (w > MAX || h > MAX){
           const scale = MAX / Math.max(w,h);
@@ -520,13 +511,14 @@
 
   dropzone.addEventListener('click', () => fileInput.click());
   changeImageBtn.addEventListener('click', () => fileInput.click());
-  fileInput.addEventListener('change', e => loadFile(e.target.files[0]));
+  fileInput.addEventListener('change', e => { if(e.target.files.length) loadFile(e.target.files[0]); });
+  
   ['dragenter','dragover'].forEach(evt => dropzone.addEventListener(evt, e => { e.preventDefault(); dropzone.classList.add('drag'); }));
   ['dragleave','drop'].forEach(evt => dropzone.addEventListener(evt, e => { e.preventDefault(); dropzone.classList.remove('drag'); }));
-  dropzone.addEventListener('drop', e => loadFile(e.dataTransfer.files[0]));
+  dropzone.addEventListener('drop', e => { if(e.dataTransfer.files.length) loadFile(e.dataTransfer.files[0]); });
 
   resetBtn.addEventListener('click', () => {
-    originalImageData = null; canvasWrap.style.display = 'none'; topbar.classList.remove('show'); dropzone.style.display = 'flex';
+    originalImageData = null; edgeMap = null; canvasWrap.style.display = 'none'; topbar.classList.remove('show'); dropzone.style.display = 'flex';
     downloadPngBtn.disabled = true; downloadMaskBtn.disabled = true; changeImageBtn.disabled = true;
     fileInput.value = ''; edgeFadeSlider.value = 0; edgeFadeVal.textContent = '0px';
     halftoneActive.checked = false; toggleHalftoneUI(false);
@@ -545,8 +537,7 @@
   });
 
   halftoneActive.addEventListener('change', () => {
-    const active = halftoneActive.checked;
-    toggleHalftoneUI(active);
+    toggleHalftoneUI(halftoneActive.checked);
     queueRender();
   });
 
@@ -580,7 +571,6 @@
     return t * t * (3 - 2 * t);
   }
 
-  // ---- Calcolo mappa Alpha con supporto Halftone Serigrafico Geometrico ----
   function computeAlphaMap(){
     const t = parseInt(threshSlider.value, 10);
     const f = parseInt(featherSlider.value, 10);
@@ -603,35 +593,6 @@
       const target = (mode === 'dark') ? lum : (255 - lum);
       let a = smoothstep(e0, e1, target);
 
-      // Sfumatura bordi esterni (Vignetta)
-      if (fadeSize > 0) {
-        const minDist = Math.min(x, w - 1 - x, y, h - 1 - y);
-        if (minDist < fadeSize) {
-          const edgeFactor = minDist / fadeSize;
-  // ---- Calcolo mappa Alpha con supporto Halftone Serigrafico Geometrico ----
-  function computeAlphaMap(){
-    const t = parseInt(threshSlider.value, 10);
-    const f = parseInt(featherSlider.value, 10);
-    const fadeSize = parseInt(edgeFadeSlider.value, 10);
-    const density = parseInt(densitySlider.value, 10) / 100;
-    const isHalftone = halftoneActive.checked;
-    const size = parseInt(dotSizeSlider.value, 10);
-    const protect = protectDetails.checked;
-    const w = originalImageData.width, h = originalImageData.height;
-    const src = originalImageData.data;
-
-    const e0 = Math.max(0, t - f); const e1 = Math.min(255, t + f);
-    const alphaMap = new Float32Array(w*h);
-
-    for (let p = 0, i = 0; p < w*h; p++, i += 4){
-      const x = p % w; const y = (p / w) | 0;
-      const r = src[i], g = src[i+1], b = src[i+2];
-      const lum = 0.299*r + 0.587*g + 0.114*b;
-      
-      const target = (mode === 'dark') ? lum : (255 - lum);
-      let a = smoothstep(e0, e1, target);
-
-      // Sfumatura bordi esterni (Vignetta)
       if (fadeSize > 0) {
         const minDist = Math.min(x, w - 1 - x, y, h - 1 - y);
         if (minDist < fadeSize) {
@@ -640,39 +601,26 @@
         }
       }
 
-      // SE RETINO SERIGRAFICO ATTIVO
       if (isHalftone && a > 0.01) {
-        // Logica di protezione contorni per evitare che scritte o occhi si sgranino troppo
         const isEdge = protect ? (edgeMap[p] > 0.18) : false;
-
         if (!isEdge) {
-          // Troviamo il centro della cella del retino
           const cellX = Math.floor(x / size) * size + size / 2;
           const cellY = Math.floor(y / size) * size + size / 2;
-          
-          // Calcoliamo la distanza del pixel corrente dal centro della cella
-          const dx = x - cellX;
-          const dy = y - cellY;
+          const dx = x - cellX; const dy = y - cellY;
           
           if (dotShape === 'round') {
             const dist = Math.sqrt(dx*dx + dy*dy);
-            const maxDist = size * 0.707; // raggio massimo d'angolo
-            // La dimensione del punto dipende dalla luminosità/opacità del pixel
-            const dotRadius = maxDist * a;
-            a = (dist < dotRadius) ? 1.0 : 0.0;
+            const maxDist = size * 0.707;
+            a = (dist < maxDist * a) ? 1.0 : 0.0;
           } else if (dotShape === 'line') {
-            // Effetto linea diagonale tipo incisione serigrafica
-            const lineVal = Math.abs(dx + dy) / (size * 1.414);
-            a = (lineVal < a * 0.5) ? 1.0 : 0.0;
+            a = ((Math.abs(dx + dy) / (size * 1.414)) < a * 0.5) ? 1.0 : 0.0;
           }
         }
       } else if (!isHalftone && density > 0 && a > 0.02){
-        // Alleggerimento classico (attivo solo se Halftone è spento)
         const ditherVal = (pattern === 'bayer') ? bayerValue(x, y) : hashNoise(x, y);
         const edge = protect ? edgeMap[p] : 0;
         if (ditherVal < (density * (1 - edge))) a = 0;
       }
-
       alphaMap[p] = a;
     }
     return alphaMap;
