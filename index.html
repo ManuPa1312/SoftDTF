@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>DTF Strip — rimozione neri/bianchi</title>
+<title>DTF Strip — rimozione neri/bianchi & Halftone</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght=400;500;600&family=Inter:wght=400;500;600;700&display=swap');
 
   :root{
     --bg: #16151a;
@@ -16,6 +16,7 @@
     --muted: #8b8892;
     --orange: #ff5a1f;
     --teal: #29d3c5;
+    --purple: #a855f7;
   }
   *{box-sizing:border-box;}
   body{
@@ -38,10 +39,12 @@
   .sidebar{
     background:var(--panel);
     border-right:1px solid var(--border);
-    padding:28px 24px;
+    padding:24px 20px;
     display:flex;
     flex-direction:column;
-    gap:26px;
+    gap:22px;
+    overflow-y: auto;
+    max-height: 100vh;
   }
   .brand{
     display:flex;
@@ -71,13 +74,13 @@
   .field{
     display:flex;
     flex-direction:column;
-    gap:10px;
+    gap:8px;
   }
   .field-label{
     display:flex;
     justify-content:space-between;
     align-items:baseline;
-    font-size:12px;
+    font-size:11px;
     text-transform:uppercase;
     letter-spacing:0.06em;
     color:var(--muted);
@@ -91,6 +94,7 @@
     color:var(--teal);
     font-size:12px;
   }
+  .field-value.purple { color: var(--purple); }
 
   .mode-toggle{
     display:flex;
@@ -103,9 +107,9 @@
     background:var(--panel-2);
     color:var(--muted);
     border:none;
-    padding:12px 8px;
+    padding:10px 6px;
     font-family:'Inter',sans-serif;
-    font-size:12.5px;
+    font-size:12px;
     font-weight:600;
     cursor:pointer;
     display:flex;
@@ -115,7 +119,7 @@
     transition:.15s;
   }
   .mode-toggle button .sw{
-    width:16px;height:16px;
+    width:14px;height:14px;
     border-radius:50%;
     border:2px solid var(--border);
   }
@@ -124,6 +128,10 @@
   .mode-toggle button.active{
     background:var(--orange);
     color:#1a0d05;
+  }
+  .mode-toggle button.purple-active.active{
+    background:var(--purple);
+    color:#fff;
   }
   .mode-toggle button.active .sw{ border-color:#1a0d05; }
 
@@ -144,6 +152,10 @@
     border:2px solid var(--bg);
     box-shadow:0 0 0 1px var(--teal);
   }
+  input[type=range].purple-slider::-webkit-slider-thumb{
+    background:var(--purple);
+    box-shadow:0 0 0 1px var(--purple);
+  }
   input[type=range]::-moz-range-thumb{
     width:15px;height:15px;
     border-radius:50%;
@@ -153,9 +165,9 @@
   }
 
   .hint{
-    font-size:12px;
+    font-size:11px;
     color:var(--muted);
-    line-height:1.5;
+    line-height:1.4;
     margin:0;
   }
 
@@ -163,7 +175,7 @@
     display:flex;
     align-items:center;
     gap:10px;
-    font-size:13px;
+    font-size:12px;
     color:var(--text);
     cursor:pointer;
     user-select:none;
@@ -172,11 +184,15 @@
     width:15px;height:15px;
     accent-color:var(--orange);
   }
+  .checkbox-row input.purple-check{
+    accent-color:var(--purple);
+  }
 
   .divider{
     height:1px;
     background:var(--border);
   }
+  .divider.purple-div { background: rgba(168,85,247,0.3); }
 
   .btn{
     background:var(--panel-2);
@@ -216,6 +232,7 @@
     padding:32px;
     gap:18px;
     position:relative;
+    background:#111014;
   }
   .dropzone{
     width:100%;
@@ -265,8 +282,8 @@
   }
   canvas{
     display:block;
-    max-width: min(78vw, 900px);
-    max-height: 70vh;
+    max-width: min(74vw, 900px);
+    max-height: 65vh;
     width:auto;
     height:auto;
   }
@@ -296,76 +313,84 @@
   <aside class="sidebar">
     <div class="brand">
       <span class="mark"></span>
-      <h1>DTF Strip</h1>
-      <span>xp600 / audley</span>
+      <h1>DTF Strip Pro</h1>
+      <span>xp600 / serigrafia</span>
     </div>
 
     <div class="field">
       <div class="field-label"><b>Colore del capo</b></div>
       <div class="mode-toggle" id="modeToggle">
-        <button data-mode="dark" class="active">
-          <span class="sw"></span>
-          Capo scuro
-        </button>
-        <button data-mode="light">
-          <span class="sw"></span>
-          Capo chiaro
-        </button>
+        <button data-mode="dark" class="active"><span class="sw"></span>Capo scuro</button>
+        <button data-mode="light"><span class="sw"></span>Capo chiaro</button>
       </div>
-      <p class="hint" id="modeHint">Rende trasparenti i toni quasi-neri: il nero del tessuto farà il lavoro al posto dell'inchiostro.</p>
     </div>
 
-    <div class="divider"></div>
-
     <div class="field">
-      <div class="field-label">Soglia <span class="field-value" id="threshVal">40</span></div>
+      <div class="field-label">Soglia Fondo <span class="field-value" id="threshVal">40</span></div>
       <input type="range" id="thresh" min="0" max="255" value="40">
-      <p class="hint">Quanto deve essere scuro (o chiaro) un pixel per essere tolto. Tienila bassa (15-20) per le foto.</p>
     </div>
 
     <div class="field">
-      <div class="field-label">Sfumatura <span class="field-value" id="featherVal">28</span></div>
+      <div class="field-label">Sfumatura Fondo <span class="field-value" id="featherVal">28</span></div>
       <input type="range" id="feather" min="0" max="120" value="28">
-      <p class="hint">Ammorbidisce il passaggio tra zona rimossa e zona stampata. Alzala (50+) per le foto reali.</p>
     </div>
 
     <div class="field">
       <div class="field-label">Sfumatura Bordi Foto <span class="field-value" id="edgeFadeVal">0px</span></div>
       <input type="range" id="edgeFade" min="0" max="150" value="0">
-      <p class="hint">Sfuma i 4 lati esterni della foto nel vuoto. Perfetto per togliere il rettangolo netto delle foto.</p>
-    </div>
-
-    <div class="divider"></div>
-
-    <div class="field">
-      <div class="field-label">Riduzione densità globale <span class="field-value" id="densityVal">0%</span></div>
-      <input type="range" id="density" min="0" max="40" value="0">
-      <p class="hint">Alleggerisce l'inchiostro nelle zone piene. Tienila a zero o molto bassa (2-4%) sulle foto dei visi.</p>
-    </div>
-
-    <div class="mode-toggle" id="patternToggle">
-      <button data-pattern="bayer" class="active">Puntinato ordinato</button>
-      <button data-pattern="noise">Grana organica</button>
     </div>
 
     <label class="checkbox-row">
       <input type="checkbox" id="protectDetails" checked>
-      Proteggi bordi e dettagli fini
+      Proteggi contorni fini
     </label>
+
+    <div class="divider purple-div"></div>
+    
+    <label class="checkbox-row" style="font-weight:600; color:var(--purple);">
+      <input type="checkbox" id="halftoneActive" class="purple-check">
+      ATTIVA RETINO SERIGRAFICO
+    </label>
+    <p class="hint">Scompone le sfumature della pelle e dello sfondo in punti geometrici per una stampa traspirante ed extra-morbida.</p>
+
+    <div class="field" id="halftoneControls" style="opacity:0.4; pointer-events:none; transition:0.2s;">
+      <div class="field-label" style="color:var(--purple);">Dimensione Punti <span class="field-value purple" id="dotSizeVal">6px</span></div>
+      <input type="range" id="dotSize" min="3" max="16" value="6" class="purple-slider">
+      <p class="hint">Punti piccoli = più dettaglio. Punti grandi = effetto serigrafia retro / maglia più leggera.</p>
+      
+      <div class="field-label" style="color:var(--purple); margin-top:8px;">Forma del punto</div>
+      <div class="mode-toggle" id="dotShapeToggle">
+        <button data-shape="round" class="purple-active active">Tondo</button>
+        <button data-shape="line" class="purple-active">Linea</button>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div id="standardDensitySection">
+      <div class="field">
+        <div class="field-label">Riduzione densità classica <span class="field-value" id="densityVal">0%</span></div>
+        <input type="range" id="density" min="0" max="40" value="0">
+      </div>
+      <div class="mode-toggle" id="patternToggle" style="margin-top:8px;">
+        <button data-pattern="bayer" class="active">Puntinato</button>
+        <button data-pattern="noise">Grana</button>
+      </div>
+    </div>
 
     <div class="divider"></div>
 
     <label class="checkbox-row">
       <input type="checkbox" id="maskPreview">
-      Mostra solo la maschera (bianco = stampato, nero = tolto)
+      Mostra solo maschera (Bianco/Nero)
     </label>
 
     <div class="divider"></div>
 
     <div class="btn-row">
       <button class="btn primary" id="downloadPng" disabled>↓ Scarica PNG (con alpha)</button>
-      <button class="btn" id="downloadMask" disabled>↓ Scarica maschera (per layer mask)</button>
-      <button class="btn" id="changeImage" disabled>Carica un'altra immagine</button>
+      <button class="btn" id="downloadMask" disabled>↓ Scarica maschera</button>
+      <button class="btn" id="changeImage" disabled>Cambia file</button>
     </div>
   </aside>
 
@@ -377,8 +402,8 @@
 
     <div class="dropzone" id="dropzone">
       <div class="icon">↑</div>
-      <p class="accent">Trascina qui l'immagine</p>
-      <p>oppure clicca per scegliere un file — JPG, PNG</p>
+      <p class="accent">Trascina qui la foto dei ragazzi</p>
+      <p>o clicca per selezionarla</p>
     </div>
 
     <div class="canvas-wrap" id="canvasWrap" style="display:none;">
@@ -402,13 +427,20 @@
 
   const threshSlider = document.getElementById('thresh');
   const featherSlider = document.getElementById('feather');
-  const edgeFadeSlider = document.getElementById('edgeFade'); // Nuovo slider
+  const edgeFadeSlider = document.getElementById('edgeFade'); 
   const threshVal = document.getElementById('threshVal');
   const featherVal = document.getElementById('featherVal');
-  const edgeFadeVal = document.getElementById('edgeFadeVal'); // Nuovo val UI
+  const edgeFadeVal = document.getElementById('edgeFadeVal'); 
   const maskPreview = document.getElementById('maskPreview');
   const modeButtons = document.querySelectorAll('#modeToggle button');
-  const modeHint = document.getElementById('modeHint');
+
+  // Controlli Halftone Serigrafia
+  const halftoneActive = document.getElementById('halftoneActive');
+  const halftoneControls = document.getElementById('halftoneControls');
+  const dotSizeSlider = document.getElementById('dotSize');
+  const dotSizeVal = document.getElementById('dotSizeVal');
+  const dotShapeButtons = document.querySelectorAll('#dotShapeToggle button');
+  const standardDensitySection = document.getElementById('standardDensitySection');
 
   const densitySlider = document.getElementById('density');
   const densityVal = document.getElementById('densityVal');
@@ -423,31 +455,18 @@
   let edgeMap = null; 
   let mode = 'dark';
   let pattern = 'bayer';
+  let dotShape = 'round';
   let currentFileName = 'immagine';
   let renderQueued = false;
 
-  const hints = {
-    dark: "Rende trasparenti i toni quasi-neri: il nero del tessuto farà il lavoro al posto dell'inchiostro.",
-    light: "Rende trasparenti i toni quasi-bianchi: la fibra chiara del capo farà il lavoro al posto dell'inchiostro bianco."
-  };
-
   const BAYER8 = [
-    [0,48,12,60,3,51,15,63],
-    [32,16,44,28,35,19,47,31],
-    [8,56,4,52,11,59,7,55],
-    [40,24,36,20,43,27,39,23],
-    [2,50,14,62,1,49,13,61],
-    [34,18,46,30,33,17,45,29],
-    [10,58,6,54,9,57,5,53],
-    [42,26,38,22,41,25,37,21]
+    [0,48,12,60,3,51,15,63], [32,16,44,28,35,19,47,31],
+    [8,56,4,52,11,59,7,55],  [40,24,36,20,43,27,39,23],
+    [2,50,14,62,1,49,13,61],  [34,18,46,30,33,17,45,29],
+    [10,58,6,54,9,57,5,53],  [42,26,38,22,41,25,37,21]
   ];
-  function bayerValue(x, y){
-    return (BAYER8[y & 7][x & 7] + 0.5) / 64;
-  }
-  function hashNoise(x, y){
-    const s = Math.sin(x * 127.1 + y * 311.7) * 43758.5453;
-    return s - Math.floor(s);
-  }
+  function bayerValue(x, y){ return (BAYER8[y & 7][x & 7] + 0.5) / 64; }
+  function hashNoise(x, y){ const s = Math.sin(x * 127.1 + y * 311.7) * 43758.5453; return s - Math.floor(s); }
 
   function computeEdgeMap(imageData){
     const w = imageData.width, h = imageData.height;
@@ -460,12 +479,9 @@
     for (let y = 0; y < h; y++){
       for (let x = 0; x < w; x++){
         const p = y*w + x;
-        const lx0 = lum[p - (x>0?1:0)];
-        const lx1 = lum[p + (x<w-1?1:0)];
-        const ly0 = lum[p - (y>0?w:0)];
-        const ly1 = lum[p + (y<h-1?w:0)];
-        const grad = (Math.abs(lx1-lx0) + Math.abs(ly1-ly0)) / 255;
-        map[p] = Math.min(1, grad);
+        const lx0 = lum[p - (x>0?1:0)]; const lx1 = lum[p + (x<w-1?1:0)];
+        const ly0 = lum[p - (y>0?w:0)]; const ly1 = lum[p + (y<h-1?w:0)];
+        map[p] = Math.min(1, (Math.abs(lx1-lx0) + Math.abs(ly1-ly0)) / 255);
       }
     }
     return map;
@@ -478,28 +494,23 @@
     const reader = new FileReader();
     reader.onload = e => {
       img.onload = () => {
-        const MAX = 2200; 
+        const MAX = 1800; // Ottimizzato per calcoli geometrici rapidi
         let w = img.width, h = img.height;
         if (w > MAX || h > MAX){
           const scale = MAX / Math.max(w,h);
           w = Math.round(w*scale); h = Math.round(h*scale);
         }
-        canvas.width = w;
-        canvas.height = h;
+        canvas.width = w; canvas.height = h;
         ctx.drawImage(img, 0, 0, w, h);
         originalImageData = ctx.getImageData(0,0,w,h);
         edgeMap = computeEdgeMap(originalImageData);
-
-        // Imposta il massimo dello slider sfumatura bordi in base alla dimensione reale dell'immagine
         edgeFadeSlider.max = Math.round(Math.min(w, h) / 3);
 
         dropzone.style.display = 'none';
         canvasWrap.style.display = 'block';
         topbar.classList.add('show');
         fileInfo.innerHTML = `<b>${file.name}</b> &nbsp;·&nbsp; ${w}×${h}px`;
-        downloadPngBtn.disabled = false;
-        downloadMaskBtn.disabled = false;
-        changeImageBtn.disabled = false;
+        downloadPngBtn.disabled = false; downloadMaskBtn.disabled = false; changeImageBtn.disabled = false;
         render();
       };
       img.src = e.target.result;
@@ -510,114 +521,158 @@
   dropzone.addEventListener('click', () => fileInput.click());
   changeImageBtn.addEventListener('click', () => fileInput.click());
   fileInput.addEventListener('change', e => loadFile(e.target.files[0]));
-
-  ['dragenter','dragover'].forEach(evt =>
-    dropzone.addEventListener(evt, e => { e.preventDefault(); dropzone.classList.add('drag'); })
-  );
-  ['dragleave','drop'].forEach(evt =>
-    dropzone.addEventListener(evt, e => { e.preventDefault(); dropzone.classList.remove('drag'); })
-  );
+  ['dragenter','dragover'].forEach(evt => dropzone.addEventListener(evt, e => { e.preventDefault(); dropzone.classList.add('drag'); }));
+  ['dragleave','drop'].forEach(evt => dropzone.addEventListener(evt, e => { e.preventDefault(); dropzone.classList.remove('drag'); }));
   dropzone.addEventListener('drop', e => loadFile(e.dataTransfer.files[0]));
 
   resetBtn.addEventListener('click', () => {
-    originalImageData = null;
-    edgeMap = null;
-    canvasWrap.style.display = 'none';
-    topbar.classList.remove('show');
-    dropzone.style.display = 'flex';
-    downloadPngBtn.disabled = true;
-    downloadMaskBtn.disabled = true;
-    changeImageBtn.disabled = true;
-    fileInput.value = '';
-    edgeFadeSlider.value = 0;
-    edgeFadeVal.textContent = '0px';
+    originalImageData = null; canvasWrap.style.display = 'none'; topbar.classList.remove('show'); dropzone.style.display = 'flex';
+    downloadPngBtn.disabled = true; downloadMaskBtn.disabled = true; changeImageBtn.disabled = true;
+    fileInput.value = ''; edgeFadeSlider.value = 0; edgeFadeVal.textContent = '0px';
+    halftoneActive.checked = false; toggleHalftoneUI(false);
   });
 
-  modeButtons.forEach(btn => {
+  modeButtons.forEach(btn => { btn.addEventListener('click', () => { modeButtons.forEach(b => b.classList.remove('active')); btn.classList.add('active'); mode = btn.dataset.mode; queueRender(); }); });
+  patternButtons.forEach(btn => { btn.addEventListener('click', () => { patternButtons.forEach(b => b.classList.remove('active')); btn.classList.add('active'); pattern = btn.dataset.pattern; queueRender(); }); });
+  
+  dotShapeButtons.forEach(btn => {
     btn.addEventListener('click', () => {
-      modeButtons.forEach(b => b.classList.remove('active'));
+      dotShapeButtons.forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
-      mode = btn.dataset.mode;
-      modeHint.textContent = hints[mode];
+      dotShape = btn.dataset.shape;
       queueRender();
     });
   });
 
-  patternButtons.forEach(btn => {
-    btn.addEventListener('click', () => {
-      patternButtons.forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      pattern = btn.dataset.pattern;
-      queueRender();
-    });
+  halftoneActive.addEventListener('change', () => {
+    const active = halftoneActive.checked;
+    toggleHalftoneUI(active);
+    queueRender();
   });
+
+  function toggleHalftoneUI(active) {
+    if(active) {
+      halftoneControls.style.opacity = "1";
+      halftoneControls.style.pointerEvents = "auto";
+      standardDensitySection.style.opacity = "0.3";
+      standardDensitySection.style.pointerEvents = "none";
+    } else {
+      halftoneControls.style.opacity = "0.4";
+      halftoneControls.style.pointerEvents = "none";
+      standardDensitySection.style.opacity = "1";
+      standardDensitySection.style.pointerEvents = "auto";
+    }
+  }
 
   threshSlider.addEventListener('input', () => { threshVal.textContent = threshSlider.value; queueRender(); });
   featherSlider.addEventListener('input', () => { featherVal.textContent = featherSlider.value; queueRender(); });
   edgeFadeSlider.addEventListener('input', () => { edgeFadeVal.textContent = edgeFadeSlider.value + 'px'; queueRender(); });
   densitySlider.addEventListener('input', () => { densityVal.textContent = densitySlider.value + '%'; queueRender(); });
+  dotSizeSlider.addEventListener('input', () => { dotSizeVal.textContent = dotSizeSlider.value + 'px'; queueRender(); });
   protectDetails.addEventListener('change', queueRender);
   maskPreview.addEventListener('change', queueRender);
 
-  function queueRender(){
-    if (renderQueued) return;
-    renderQueued = true;
-    requestAnimationFrame(() => { renderQueued = false; render(); });
-  }
+  function queueRender(){ if (renderQueued) return; renderQueued = true; requestAnimationFrame(() => { renderQueued = false; render(); }); }
 
   function smoothstep(edge0, edge1, x){
     if (edge0 === edge1) return x < edge0 ? 0 : 1;
-    let t = (x - edge0) / (edge1 - edge0);
-    t = Math.min(1, Math.max(0, t));
+    let t = Math.min(1, Math.max(0, (x - edge0) / (edge1 - edge0)));
     return t * t * (3 - 2 * t);
   }
 
-  // ---- Calcolo mappa Alpha + Vignettatura Bordi ----
+  // ---- Calcolo mappa Alpha con supporto Halftone Serigrafico Geometrico ----
   function computeAlphaMap(){
     const t = parseInt(threshSlider.value, 10);
     const f = parseInt(featherSlider.value, 10);
-    const fadeSize = parseInt(edgeFadeSlider.value, 10); // valore del nuovo slider
-    const density = parseInt(densitySlider.value, 10) / 100; 
+    const fadeSize = parseInt(edgeFadeSlider.value, 10);
+    const density = parseInt(densitySlider.value, 10) / 100;
+    const isHalftone = halftoneActive.checked;
+    const size = parseInt(dotSizeSlider.value, 10);
     const protect = protectDetails.checked;
     const w = originalImageData.width, h = originalImageData.height;
     const src = originalImageData.data;
 
-    const e0 = Math.max(0, t - f);
-    const e1 = Math.min(255, t + f);
-
+    const e0 = Math.max(0, t - f); const e1 = Math.min(255, t + f);
     const alphaMap = new Float32Array(w*h);
 
     for (let p = 0, i = 0; p < w*h; p++, i += 4){
-      const x = p % w;
-      const y = (p / w) | 0;
-
+      const x = p % w; const y = (p / w) | 0;
       const r = src[i], g = src[i+1], b = src[i+2];
       const lum = 0.299*r + 0.587*g + 0.114*b;
+      
       const target = (mode === 'dark') ? lum : (255 - lum);
-      let a = smoothstep(e0, e1, target); 
+      let a = smoothstep(e0, e1, target);
 
-      // APPLICAZIONE SFUMATURA BORDI ESTERNI AUTOMATICA
+      // Sfumatura bordi esterni (Vignetta)
       if (fadeSize > 0) {
-        // Calcoliamo la distanza minima del pixel dai 4 bordi dell'immagine
-        const distLeft = x;
-        const distRight = w - 1 - x;
-        const distTop = y;
-        const distBottom = h - 1 - y;
-        const minDist = Math.min(distLeft, distRight, distTop, distBottom);
-
+        const minDist = Math.min(x, w - 1 - x, y, h - 1 - y);
         if (minDist < fadeSize) {
-          // Crea un fattore moltiplicativo da 0 (bordo esterno) a 1 (interno immagine)
           const edgeFactor = minDist / fadeSize;
-          a *= (edgeFactor * edgeFactor * (3 - 2 * edgeFactor)); // Sfumatura smooth
+  // ---- Calcolo mappa Alpha con supporto Halftone Serigrafico Geometrico ----
+  function computeAlphaMap(){
+    const t = parseInt(threshSlider.value, 10);
+    const f = parseInt(featherSlider.value, 10);
+    const fadeSize = parseInt(edgeFadeSlider.value, 10);
+    const density = parseInt(densitySlider.value, 10) / 100;
+    const isHalftone = halftoneActive.checked;
+    const size = parseInt(dotSizeSlider.value, 10);
+    const protect = protectDetails.checked;
+    const w = originalImageData.width, h = originalImageData.height;
+    const src = originalImageData.data;
+
+    const e0 = Math.max(0, t - f); const e1 = Math.min(255, t + f);
+    const alphaMap = new Float32Array(w*h);
+
+    for (let p = 0, i = 0; p < w*h; p++, i += 4){
+      const x = p % w; const y = (p / w) | 0;
+      const r = src[i], g = src[i+1], b = src[i+2];
+      const lum = 0.299*r + 0.587*g + 0.114*b;
+      
+      const target = (mode === 'dark') ? lum : (255 - lum);
+      let a = smoothstep(e0, e1, target);
+
+      // Sfumatura bordi esterni (Vignetta)
+      if (fadeSize > 0) {
+        const minDist = Math.min(x, w - 1 - x, y, h - 1 - y);
+        if (minDist < fadeSize) {
+          const edgeFactor = minDist / fadeSize;
+          a *= (edgeFactor * edgeFactor * (3 - 2 * edgeFactor));
         }
       }
 
-      if (density > 0 && a > 0.02){
+      // SE RETINO SERIGRAFICO ATTIVO
+      if (isHalftone && a > 0.01) {
+        // Logica di protezione contorni per evitare che scritte o occhi si sgranino troppo
+        const isEdge = protect ? (edgeMap[p] > 0.18) : false;
+
+        if (!isEdge) {
+          // Troviamo il centro della cella del retino
+          const cellX = Math.floor(x / size) * size + size / 2;
+          const cellY = Math.floor(y / size) * size + size / 2;
+          
+          // Calcoliamo la distanza del pixel corrente dal centro della cella
+          const dx = x - cellX;
+          const dy = y - cellY;
+          
+          if (dotShape === 'round') {
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            const maxDist = size * 0.707; // raggio massimo d'angolo
+            // La dimensione del punto dipende dalla luminosità/opacità del pixel
+            const dotRadius = maxDist * a;
+            a = (dist < dotRadius) ? 1.0 : 0.0;
+          } else if (dotShape === 'line') {
+            // Effetto linea diagonale tipo incisione serigrafica
+            const lineVal = Math.abs(dx + dy) / (size * 1.414);
+            a = (lineVal < a * 0.5) ? 1.0 : 0.0;
+          }
+        }
+      } else if (!isHalftone && density > 0 && a > 0.02){
+        // Alleggerimento classico (attivo solo se Halftone è spento)
         const ditherVal = (pattern === 'bayer') ? bayerValue(x, y) : hashNoise(x, y);
         const edge = protect ? edgeMap[p] : 0;
-        const effectiveDensity = density * (1 - edge); 
-        if (ditherVal < effectiveDensity) a = 0; 
+        if (ditherVal < (density * (1 - edge))) a = 0;
       }
+
       alphaMap[p] = a;
     }
     return alphaMap;
@@ -637,21 +692,17 @@
         const g8 = Math.round(a * 255);
         dst[i] = g8; dst[i+1] = g8; dst[i+2] = g8; dst[i+3] = 255;
       } else {
-        const srcA = (src[i+3] || 0) / 255;
-        const finalAlpha = srcA * a;
-
+        const finalAlpha = ((src[i+3] || 0) / 255) * a;
         if (finalAlpha === 0) {
           dst[i] = 0; dst[i+1] = 0; dst[i+2] = 0; dst[i+3] = 0;
         } else {
-          if (mode === 'dark' && a < 1.0) {
-            const factor = Math.max(0.1, a); 
-            dst[i]   = Math.min(255, Math.round(src[i] / factor));
+          if (mode === 'dark' && a < 1.0 && !halftoneActive.checked) {
+            const factor = Math.max(0.1, a);
+            dst[i] = Math.min(255, Math.round(src[i] / factor));
             dst[i+1] = Math.min(255, Math.round(src[i+1] / factor));
             dst[i+2] = Math.min(255, Math.round(src[i+2] / factor));
           } else {
-            dst[i]   = src[i];
-            dst[i+1] = src[i+1];
-            dst[i+2] = src[i+2];
+            dst[i] = src[i]; dst[i+1] = src[i+1]; dst[i+2] = src[i+2];
           }
           dst[i+3] = Math.round(finalAlpha * 255);
         }
@@ -660,42 +711,20 @@
     targetCtx.putImageData(out, 0, 0);
   }
 
-  function render(){
-    if (!originalImageData) return;
-    const alphaMap = computeAlphaMap();
-    paintFromAlphaMap(ctx, alphaMap, maskPreview.checked);
-  }
-
-  function buildResultCanvas(asMask){
-    const w = originalImageData.width, h = originalImageData.height;
-    const alphaMap = computeAlphaMap();
-    const c = document.createElement('canvas');
-    c.width = w; c.height = h;
-    paintFromAlphaMap(c.getContext('2d'), alphaMap, asMask);
-    return c;
-  }
-
+  function render(){ if (!originalImageData) return; paintFromAlphaMap(ctx, computeAlphaMap(), maskPreview.checked); }
+  function buildResultCanvas(asMask){ const w = originalImageData.width, h = originalImageData.height; const c = document.createElement('canvas'); c.width = w; c.height = h; paintFromAlphaMap(c.getContext('2d'), computeAlphaMap(), asMask); return c; }
+  
   function download(canvasEl, suffix){
     canvasEl.toBlob(blob => {
       const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${currentFileName}_${mode}_${suffix}.png`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
+      const a = document.createElement('a'); a.href = url; a.download = `${currentFileName}_${suffix}.png`;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
       setTimeout(() => URL.revokeObjectURL(url), 2000);
     }, 'image/png');
   }
 
-  downloadPngBtn.addEventListener('click', () => {
-    const c = buildResultCanvas(false);
-    download(c, 'strip');
-  });
-  downloadMaskBtn.addEventListener('click', () => {
-    const c = buildResultCanvas(true);
-    download(c, 'mask');
-  });
+  downloadPngBtn.addEventListener('click', () => download(buildResultCanvas(false), 'halftone'));
+  downloadMaskBtn.addEventListener('click', () => download(buildResultCanvas(true), 'mask'));
 })();
 </script>
 </body>
